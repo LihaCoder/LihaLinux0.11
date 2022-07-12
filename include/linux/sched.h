@@ -82,6 +82,39 @@ struct tss_struct {
 	struct i387_struct i387;
 };
 
+/*
+对task_struct结构体的解释
+
+struct task_struct {
+	long state		// 任务的状态，-1不可运行，0可运行（就绪），>0已停止
+	long counter;	// 任务运行时间计数（递减）（滴答数），运行时间片
+	long priority;	// 运行的优先级。任务开始运行时counter=priority 越大运行时间越长 
+	long signal;	// 信号，是位图，每个比特位代表一种信号，信号值=位偏移量-1
+	struct sigaction sigaction[32];		// 信号执行属性结构，对应信号将要执行的操作和标志信息
+	long blocke		// 进程信号屏蔽码（对应信号位图）
+	int exit_code;	// 任务执行停止的退出码，其父进程会获取
+	unsigned long start_code,end_code,end_data,brk,start_stack;		// 任务对应的段虚拟内存位置
+	long pid,father,pgrp,session,leader; 	// 任务id、父任务id....
+	unsigned short uid,euid,suid;
+	unsigned short gid,egid,sgid;
+	long alarm;		// 报警定时值（滴答数）
+	long utime,stime,cutime,cstime,start_time;		// 用户态执行时间(滴答数)
+													// 内核态执行时间(滴答数)
+													// 子进程用户态执行时间(滴答数)
+													// 子进程内核态执行时间(滴答数)
+													// 进程开始运行时刻
+	unsigned short used_math;
+	int tty;	
+	unsigned short umask;
+	struct m_inode * pwd;
+	struct m_inode * root;
+	struct m_inode * executable;
+	unsigned long close_on_exec;
+	struct file * filp[NR_OPEN];
+	struct desc_struct ldt[3];
+	struct tss_struct tss;
+};
+*/
 struct task_struct {
 /* these are hardcoded - don't touch */
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
@@ -117,6 +150,8 @@ struct task_struct {
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x9ffff (=640kB)
  */
+// tsak的PCB（task_struct），手动创建
+// 这是0号任务，也就是这个任务来做初始化操作（进程调度、中断的添加（main方法）...）
 #define INIT_TASK \
 /* state etc */	{ 0,15,15, \
 /* signals */	0,{{},},0, \

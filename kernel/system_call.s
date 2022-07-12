@@ -177,6 +177,21 @@ _device_not_available:
 
 // 这里是处理中断向量0x20(32)的程序
 // 也就是处理时钟中断
+// 中断频率为100Hz，所以就是100次/1秒，而1秒=1000毫秒，所以就是10毫秒一次时钟中断。
+/*
+	*	 0(%esp) - %eax
+ 	*	 4(%esp) - %ebx
+ 	*	 8(%esp) - %ecx
+ 	*	 C(%esp) - %edx
+ 	*	10(%esp) - %fs
+ 	*	14(%esp) - %es
+ 	*	18(%esp) - %ds
+ 	*	1C(%esp) - %eip
+ 	*	20(%esp) - %cs
+ 	*	24(%esp) - %eflags
+ 	*	28(%esp) - %oldesp
+ 	*	2C(%esp) - %oldss
+*/
 .align 2
 _timer_interrupt:
 	push %ds		# save ds,es and put kernel data space
@@ -194,8 +209,8 @@ _timer_interrupt:
 	incl _jiffies		# 自增jiffies
 	movb $0x20,%al		# EOI to interrupt controller #1
 	outb %al,$0x20		# io端口32？
-	movl CS(%esp),%eax  # 获取到
-	andl $3,%eax		# %eax is CPL (0 or 3, 0=supervisor)  保留后2位
+	movl CS(%esp),%eax  # 这里通过cs中的选择子可以得到当前是在内核态还是用户态
+	andl $3,%eax		# %eax is CPL (0 or 3, 0=supervisor)  二进制截断，保留后2位，因为选择子的最后2位是RPL(CS位CPL)
 	pushl %eax  		# 用栈传递eax寄存器中的参数
 	call _do_timer		# 'do_timer(long CPL)' does everything from
 	addl $4,%esp		# task switching to accounting ...  将push的eax寄存器pop掉

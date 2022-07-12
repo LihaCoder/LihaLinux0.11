@@ -289,6 +289,8 @@ unsigned long put_page(unsigned long page,unsigned long address)
 		*page_table = tmp|7;
 		page_table = (unsigned long *) tmp;
 	}
+
+	// (address>>12) & 0x3ff 得到页表的偏移量
 	page_table[(address>>12) & 0x3ff] = page | 7;
 /* no need for invalidate */
 	return page;

@@ -65,6 +65,8 @@ union task_union {
 
 static union task_union init_task = {INIT_TASK,};
 
+// 从开机开始记录的时钟滴答的次数，频率为10ms一次
+// 用途特别的广泛
 long volatile jiffies=0;
 long startup_time=0;
 
@@ -150,6 +152,8 @@ void schedule(void)
 
 /* this is the scheduler proper（适当的）: */
 
+	// 首先调度counter值最大的，值最大也就意味着时间片最大。
+	// 如果时间片都为0，那么就调度priority（优先级）值最大的
 	while (1) {
 		c = -1;
 		next = 0;
@@ -296,9 +300,9 @@ void do_floppy_timer(void)
 #define TIME_REQUESTS 64
 
 static struct timer_list {
-	long jiffies;
-	void (*fn)();
-	struct timer_list * next;
+	long jiffies;				// 滴答数
+	void (*fn)();				// 没有输入输出的函数指针
+	struct timer_list * next;	// 链表
 } timer_list[TIME_REQUESTS], * next_timer = NULL;
 
 void add_timer(long jiffies, void (*fn)(void))
@@ -344,11 +348,14 @@ void do_timer(long cpl)
 		if (!--beepcount)
 			sysbeepstop();
 
+	// 用特权级来区分当前任务是在内核态还是在用户态执行
+	// 并且记录
 	if (cpl)
 		current->utime++;
 	else
 		current->stime++;
 
+	
 	if (next_timer) {
 		next_timer->jiffies--;
 		while (next_timer && next_timer->jiffies <= 0) {
@@ -357,16 +364,25 @@ void do_timer(long cpl)
 			fn = next_timer->fn;
 			next_timer->fn = NULL;
 			next_timer = next_timer->next;
-			(fn)();
+			(fn)();		// 调用函数指针
 		}
 	}
+
+	// 0x0c = 0000 1100
+	// 0xf0 = 1111 0000
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
-	if ((--current->counter)>0) return;
-	current->counter=0;
-	if (!cpl) return;
 
-	// 任务调度的具体逻辑
+	// 当前任务的时间片还没到0，所以不切换任务，所以直接返回
+	if ((--current->counter)>0) return;	
+
+	// 可能为-1，既然都能执行到这一行，所以直接置为0
+	current->counter=0;
+
+	// cpl为0，也就是在内核态就直接返回。
+	if (!cpl) return;		
+
+	// 当前在用户态，并且时间片已经用完，就执行任务调度的具体逻辑
 	schedule();
 }
 
@@ -441,6 +457,8 @@ void sched_init(void)
 	outb_p(0x36,0x43);		/* binary, mode 3, LSB/MSB, ch 0 */
 	outb_p(LATCH & 0xff , 0x40);	/* LSB */
 	outb(LATCH >> 8 , 0x40);	/* MSB */
+
+	// 0x20 = 32， 将时钟中断32放入到idt表中。
 	set_intr_gate(0x20,&timer_interrupt);
 	outb(inb_p(0x21)&~0x01,0x21);
 	set_system_gate(0x80,&system_call);

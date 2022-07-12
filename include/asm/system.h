@@ -19,11 +19,25 @@ __asm__ ("movl %%esp,%%eax\n\t" \
 
 #define iret() __asm__ ("iret"::)
 
+// gate_addr 为ldt中的描述符的地址(也就是门的位置)
+// type 给定的值
+// dpl 也是给进来的值
+// addr 为handler函数地址
+/*
+	内联汇编的输出：
+		eax：0x00080000
+		edx：(char *) (addr)
+		%0 = 0x8E00
+		%1 = *((char *) (gate_addr)) 为ldt表中某个描述符的后32位
+		%2 = *(4+(char *) (gate_addr)) 为ldt表中某个描述符的前32位
+*/
+// 0x8 = 1000 所以这里确定了查GDT表项中下标为1的cs段。也就是内核的cs段。
+// 然后ldt表中的描述符的后16位确定了线性地址的offset（也就是handler函数的首地址）
 #define _set_gate(gate_addr,type,dpl,addr) \
-__asm__ ("movw %%dx,%%ax\n\t" \
-	"movw %0,%%dx\n\t" \
-	"movl %%eax,%1\n\t" \
-	"movl %%edx,%2" \
+__asm__ ("movw %%dx,%%ax\n\t" \		// 将handler函数的低16位移动到eax中，得到0x0008 xxxx（4个x为handler函数地址）
+	"movw %0,%%dx\n\t" \			// 将8E00移动到edx中。
+	"movl %%eax,%1\n\t" \			// 将0x0008 xxxx（4个x为handler函数地址）移动到ldt表中对应的描述符的后32位
+	"movl %%edx,%2" \				// 将0x0000 8E00移动到ldt表中对应的描述符的前32位。
 	: \
 	: "i" ((short) (0x8000+(dpl<<13)+(type<<8))), \
 	"o" (*((char *) (gate_addr))), \
