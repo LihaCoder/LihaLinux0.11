@@ -15,12 +15,9 @@
 	do_no_page:缺页处理
 	do_wp_page:保护相关的处理
 */
-/*
-	所以这个(esp)是PDE或者PTE
-*/
 _page_fault:
 	// 错误码是CPU自动压入栈的
-	xchgl %eax,(%esp)	// 互相交换    		(%esp)是将当前栈中esp的地址取值出来放入到eax中
+	xchgl %eax,(%esp)	// 互相交换    		(%esp)是将当前栈中esp的地址取值出来放入到eax中,也就是把错误码放入到eax寄存器中
 	
 	pushl %ecx			// 压栈操作
 	pushl %edx			// 压栈操作
@@ -32,7 +29,7 @@ _page_fault:
 	mov %dx,%ds			// 低16位放到ds中,这里dddd（选择子），所以这里是定位到内核的数据段
 	mov %dx,%es			// 低16位放到es中,这里dddd（选择子），所以这里是定位到内核的数据段
 	mov %dx,%fs			// 低16位放到fs中,这里dddd（选择子），所以这里是定位到内核的数据段
-	movl %cr2,%edx		// cr2存放的是页面故障的线性地址
+	movl %cr2,%edx		// cr2存放的是页面故障的线性地址，这也是cpu自动做的。
 	
 	pushl %edx			// 页面故障的线性地址压入栈，目的是为了栈传参
 	pushl %eax			// 错误码eax压栈，目的是为了栈传参

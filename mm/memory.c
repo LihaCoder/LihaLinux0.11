@@ -66,6 +66,7 @@ static unsigned char mem_map [ PAGING_PAGES ] = {0,};
  * Get physical address of first (actually last :-) free page, and mark it
  * used. If no free pages left, return 0.
  */
+ // 获取到一个空闲的页的基地址
 unsigned long get_free_page(void)
 {
 register unsigned long __res asm("ax");
@@ -75,10 +76,10 @@ __asm__("std ; repne ; scasb\n\t"	// 这里就是在遍历mem_map数组，然后
 	"movb $1,1(%%edi)\n\t"			// 执行到这里代表找到mem_map为0的下标，也就是找到了空白页。这一步目的就是占坑
 	"sall $12,%%ecx\n\t"			// 所以这里的ecx寄存器的值是上面计数器自减后的值，也就是找到空白页的索引，左移12位后得到地址
 	"addl %2,%%ecx\n\t"				// 这里要加上内核使用的1mb的基址，得到绝对地址
-	"movl %%ecx,%%edx\n\t"			// 把ecx中绝对地址页表的地址给edx
+	"movl %%ecx,%%edx\n\t"			// 把ecx中绝对地址页的地址给edx
 	"movl $1024,%%ecx\n\t"			// 1024给ecx
-	"leal 4092(%%edx),%%edi\n\t"	// 一个页表是4096的大小，而对于页表来说一个表项是4byte，所以这是得到空闲页表的最后一个元素地址
-	"rep ; stosl\n\t"				// 
+	"leal 4092(%%edx),%%edi\n\t"	// 一个页是4096的大小，所以这是得到空闲页的最后一个元素地址
+	"rep ; stosl\n\t"				// 清空元素
 	"movl %%edx,%%eax\n"			// 这里的edx是空闲页表的基址给eax返回
 	"1:"
 	:"=a" (__res)
@@ -173,6 +174,7 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 
 	
 	size = ((unsigned) (size+0x3fffff)) >> 22;
+	
 	for( ; size-->0 ; from_dir++,to_dir++) {
 
 		// 只有*to_dir的最后一位为0才不执行这里
@@ -194,8 +196,8 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 		// 目的是为了将PDE中的最后12位清零，目的是为了得到一个完整的20位的页表基地址
 		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);
 
-		// 这里寻找一个空闲的页表，也就是为子进程找页表
-		// 这里是找到空闲页表的基址
+		// 这里寻找一个空闲的页，也就是为子进程找页
+		// 这里是找到空闲页的基址
 		if (!(to_page_table = (unsigned long *) get_free_page()))
 			return -1;	/* Out of memory, see freeing */
 
@@ -211,12 +213,13 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 		// 这边其实就是在遍历这个页表所有项，一个页表是1024*4byte = 4kb
 		// from_page_table++是操作页表,因为地址+1代表你懂得
 		// to_page_table++是操作页表,因为地址+1代表你懂得
+		// 所以这个for循环就是把父页表中的描述符信息（PTE）赋值到子页表中。
+		// 所以父子进程拷贝页表，都指向同页帧。
 		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
 
-			// from_page_table 是页目录表项指向的页表
-			// *from_page_table解引用，这里解引用后还是一个4byte，32位的描述符
-			// this_page 也就是页表（理解成一个数组，指向最低）
-			// 这里是获取到具体的PTE
+			// from_page_table 是页目录表项指向的页表的地址
+			// *from_page_table 解引用，也就是具体页表项PTE，得到页帧的描述符
+			// this_page是父页表的描述符PTE
 			this_page = *from_page_table;	
 
 			// this_page最后一位为0，整个就为0了，骚的不行
@@ -229,14 +232,25 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 
 			// 这不就是在复制了么... 嘻嘻             闭环  
 			// 所以最后子进程和父进程的页都是只读的
+			// this_page是父页帧的描述符信息
+			// 所以也就是把父页表中的描述符信息赋值到子页表中，指针是真的骚啊啊啊啊啊啊啊啊啊啊啊
 			*to_page_table = this_page;
 
 
 			// LOW_MEM宏定义，为0x100000  为1MB
+			// 这里的意思是PTE指向的页帧不是内核1MB中的页
 			if (this_page > LOW_MEM) {
+
+				// 
 				*from_page_table = this_page;
+
+				// 减去内核占用的1MB空间，得到用户态分页的15MB
 				this_page -= LOW_MEM;
+
+				// 右移动12位，得到指向20位的页基地址。
 				this_page >>= 12;
+
+				// 这里++代表多一次引用。
 				mem_map[this_page]++;
 			}
 		}

@@ -74,6 +74,8 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	int i;
 	struct file *f;
 
+	// get_free_page()方法是返回一个空闲页的基地址
+	// 而这里的意思是task_struct为一个页的最低位置。
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;

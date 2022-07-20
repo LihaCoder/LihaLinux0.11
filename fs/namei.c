@@ -280,15 +280,30 @@ static struct m_inode * dir_namei(const char * pathname,
 {
 	char c;
 	const char * basename;
+
+	// 最顶层的目录
 	struct m_inode * dir;
 
+	// 找到最顶层目录的路径的inode节点
+	// 在linux内核中的MINIX文件系统中的inode节点的解释为文件或者目录
 	if (!(dir = get_dir(pathname)))
 		return NULL;
+
+	// 这里是假设pathname已经是最后一级目录了。
 	basename = pathname;
+
+	// 这里是遍历当前pathname的最后一级目录。
+	// 如果循环进不去，上一行代码就代表pathname已经是最后一级目录了。
 	while (c=get_fs_byte(pathname++))
+
+		// 只要是/就进行赋值，所以最后basename是最后一级目录
 		if (c=='/')
 			basename=pathname;
+
+	
+	// 长度
 	*namelen = pathname-basename-1;
+		
 	*name = basename;
 	return dir;
 }
@@ -347,41 +362,67 @@ int open_namei(const char * pathname, int flag, int mode,
 		flag |= O_WRONLY;
 	mode &= 0777 & ~current->umask;
 	mode |= I_REGULAR;
+
+	// 返回的dir是当前文件名的顶层目录
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return -ENOENT;
+
+	// 为0的特殊情况就是，当前路径就是最上级目录或者下层的子目录没有文件。
 	if (!namelen) {			/* special case: '/usr/' etc */
+
+		// 这种特殊的情况如果不是创建，那么就代表是打开一个目录
 		if (!(flag & (O_ACCMODE|O_CREAT|O_TRUNC))) {
+
+			// 代表是打开一个目录，所以赋值并且返回
 			*res_inode=dir;
 			return 0;
 		}
+
+		// 释放inode节点，并且返回错误码。
 		iput(dir);
 		return -EISDIR;
 	}
+
+	// 查找当前目录是否存在高速缓存。  而高速缓存的元数据信息就是buffer_head。
 	bh = find_entry(&dir,basename,namelen,&de);
 	if (!bh) {
+		
+		// 如果不是创建文件就直接释放inode，并且返回错误码
 		if (!(flag & O_CREAT)) {
 			iput(dir);
 			return -ENOENT;
 		}
+		
+		// 如果用户在该目录没有写的权利，则释放该目录的i节点，并且返回错误码。
 		if (!permission(dir,MAY_WRITE)) {
 			iput(dir);
 			return -EACCES;
 		}
+
+		// 在当前目录节点上申请一个新的i节点，如果创建失败那么就释放i节点，并且返回错误码。
 		inode = new_inode(dir->i_dev);
 		if (!inode) {
 			iput(dir);
 			return -ENOSPC;
 		}
+
+		
 		inode->i_uid = current->euid;
 		inode->i_mode = mode;
 		inode->i_dirt = 1;
+
+		// 添加高速缓存。
 		bh = add_entry(dir,basename,namelen,&de);
+
+		// 如果创建高速缓存失败就直接释放新创建的inode和dir节点，并且返回错误码。
 		if (!bh) {
 			inode->i_nlinks--;
 			iput(inode);
 			iput(dir);
 			return -ENOSPC;
 		}
+
+		
 		de->inode = inode->i_num;
 		bh->b_dirt = 1;
 		brelse(bh);
@@ -389,12 +430,18 @@ int open_namei(const char * pathname, int flag, int mode,
 		*res_inode = inode;
 		return 0;
 	}
+
+
+	// 走这里就代表已经存在了高速缓存，直接从高速缓存中去inode.
+	
 	inr = de->inode;
 	dev = dir->i_dev;
 	brelse(bh);
 	iput(dir);
 	if (flag & O_EXCL)
 		return -EEXIST;
+
+	// iget是取到inode节点
 	if (!(inode=iget(dev,inr)))
 		return -EACCES;
 	if ((S_ISDIR(inode->i_mode) && (flag & O_ACCMODE)) ||

@@ -12,6 +12,7 @@
  * buffers when they are in the queue. 64 seems to be too many (easily
  * long pauses in reading when heavy writing/syncing is going on)
  */
+ // 电梯算法.
 #define NR_REQUEST	32
 
 /*
@@ -21,7 +22,10 @@
  * read/write completion.
  */
 struct request {
+
 	int dev;		/* -1 if no request */
+
+	// 操作类型
 	int cmd;		/* READ or WRITE */
 	int errors;
 	unsigned long sector;
@@ -29,7 +33,7 @@ struct request {
 	char * buffer;
 	struct task_struct * waiting;
 	struct buffer_head * bh;
-	struct request * next;
+	struct request * next;		// 单项链表。
 };
 
 /*

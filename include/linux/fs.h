@@ -69,27 +69,37 @@ struct buffer_head {
 	char * b_data;			/* pointer to data block (1024 bytes) */
 	unsigned long b_blocknr;	/* block number */
 	unsigned short b_dev;		/* device (0 = free) */
+
+	// 更新标志：表示数据是否已更新。
 	unsigned char b_uptodate;
+
+	// 修改标志位,   0未修改   ，1已修改。
 	unsigned char b_dirt;		/* 0-clean,1-dirty */
+
+	
 	unsigned char b_count;		/* users using this block */
+
+	// 当前缓存块是否被锁定。
 	unsigned char b_lock;		/* 0 - ok, 1 -locked */
 	struct task_struct * b_wait;
-	struct buffer_head * b_prev;
-	struct buffer_head * b_next;
-	struct buffer_head * b_prev_free;
-	struct buffer_head * b_next_free;
+	struct buffer_head * b_prev;		// hash表的上一个指针	
+	struct buffer_head * b_next;		// hash表的下一个指针
+	struct buffer_head * b_prev_free;	// 
+	struct buffer_head * b_next_free;	// 
 };
 
+// 文件的元数据信息，也就是i节点。
 struct d_inode {
-	unsigned short i_mode;
-	unsigned short i_uid;
-	unsigned long i_size;
-	unsigned long i_time;
-	unsigned char i_gid;
-	unsigned char i_nlinks;
-	unsigned short i_zone[9];
+	unsigned short i_mode;		// 文件访问权限
+	unsigned short i_uid;		// 文件id
+	unsigned long i_size;		// 文件大小
+	unsigned long i_time;		// 打开时间	
+	unsigned char i_gid;		// 父目录的id
+	unsigned char i_nlinks;		// 链接数，有多少文件指向该文件（软链接、硬链接）
+	unsigned short i_zone[9];	// 文件所占盘上的逻辑数组
 };
 
+// 这是在内存中的i节点结构。前7项与d_inode一样。
 struct m_inode {
 	unsigned short i_mode;
 	unsigned short i_uid;
@@ -102,7 +112,7 @@ struct m_inode {
 	struct task_struct * i_wait;
 	unsigned long i_atime;
 	unsigned long i_ctime;
-	unsigned short i_dev;
+	unsigned short i_dev;		// 当前inode所在的设备号
 	unsigned short i_num;
 	unsigned short i_count;
 	unsigned char i_lock;
@@ -113,6 +123,7 @@ struct m_inode {
 	unsigned char i_update;
 };
 
+// 一份file结构体表示为一个文件，也就是linux内核中文件的抽象。
 struct file {
 	unsigned short f_mode;
 	unsigned short f_flags;
@@ -121,6 +132,7 @@ struct file {
 	off_t f_pos;
 };
 
+// 超级块的描述结构体（这些都是元数据信息罢了）
 struct super_block {
 	unsigned short s_ninodes;
 	unsigned short s_nzones;
@@ -130,7 +142,10 @@ struct super_block {
 	unsigned short s_log_zone_size;
 	unsigned long s_max_size;
 	unsigned short s_magic;
-/* These are only in memory */
+	/* 
+		These are only in memory 
+		仅在内存中使用的。
+	*/
 	struct buffer_head * s_imap[8];
 	struct buffer_head * s_zmap[8];
 	unsigned short s_dev;

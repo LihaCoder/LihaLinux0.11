@@ -35,9 +35,15 @@ int NR_BUFFERS = 0;
 
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
-	cli();
+	cli();		// 关闭中断。
+
+	// 如果当前找到的这个缓存头已经被上锁了，直接sleep_on切换进程。
 	while (bh->b_lock)
+
+		// 直接休眠，等待一段时间再来尝试。
 		sleep_on(&bh->b_wait);
+
+	// 睡醒了就打开中断
 	sti();
 }
 
@@ -69,7 +75,9 @@ int sync_dev(int dev)
 		if (bh->b_dev == dev && bh->b_dirt)
 			ll_rw_block(WRITE,bh);
 	}
+	
 	sync_inodes();
+	
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
 		if (bh->b_dev != dev)
@@ -167,6 +175,7 @@ static struct buffer_head * find_buffer(int dev, int block)
 {		
 	struct buffer_head * tmp;
 
+	// 通过hash算出位置。  如果遍历完都没有找到就返回null。
 	for (tmp = hash(dev,block) ; tmp != NULL ; tmp = tmp->b_next)
 		if (tmp->b_dev==dev && tmp->b_blocknr==block)
 			return tmp;
@@ -184,13 +193,28 @@ struct buffer_head * get_hash_table(int dev, int block)
 {
 	struct buffer_head * bh;
 
+	
 	for (;;) {
+
+		// 通过设备和块找到bh，如果没找到就返回0.
 		if (!(bh=find_buffer(dev,block)))
 			return NULL;
+		
 		bh->b_count++;
+
+		// 查看当前获取到buffer_head是否已经上锁
+		// 能出这个循环就代表已经没上锁了，要不然一直在这里等待...
+		// 这里还是挺老实的，一直只等一个buffer_head.
+		// 所以write也是阻塞的？？？？
 		wait_on_buffer(bh);
+
+		// 考虑一下时钟中断，切换上下文？
+		// 上下文切换了，导致我们找到的bh被其他人用了？
+		// 所以继续for循环再找。
+		// 如果没被切换就直接返回。
 		if (bh->b_dev == dev && bh->b_blocknr == block)
 			return bh;
+		
 		bh->b_count--;
 	}
 }
@@ -202,33 +226,65 @@ struct buffer_head * get_hash_table(int dev, int block)
  *
  * The algoritm is changed: hopefully better, and an elusive bug removed.
  */
+ // b_dirt（修改标志位） * 2 + 锁？
+ // 数值更大越G，嘻嘻....
+ // 为0最爽。
 #define BADNESS(bh) (((bh)->b_dirt<<1)+(bh)->b_lock)
+
+
 struct buffer_head * getblk(int dev,int block)
 {
 	struct buffer_head * tmp, * bh;
 
 repeat:
+
+	// 找到了就返回，没找到就往下走。
 	if (bh = get_hash_table(dev,block))
 		return bh;
+
+	// 没通过hash表拿到，我们就通过空闲链表来获取。
 	tmp = free_list;
+
+	
 	do {
+		// 如果不为0就代表已经被其他人使用了。
 		if (tmp->b_count)
 			continue;
+		
+		// bh是当前，tmp是下一个
+		// BADNESS(tmp)<BADNESS(bh)  小于的话就表示下一个比当前的好
 		if (!bh || BADNESS(tmp)<BADNESS(bh)) {
 			bh = tmp;
+
+			// 找到为0的就很满足的离开了。  但是也有可能遍历完全部也找不到...
 			if (!BADNESS(tmp))
 				break;
 		}
 /* and repeat until we find something good */
 	} while ((tmp = tmp->b_next_free) != free_list);
+
+	// 如果上面的do while循环执行完毕都没有找到bh，那就先休息一下，再继续找
 	if (!bh) {
+
+		// 传入一个buffer等待队列进去。
 		sleep_on(&buffer_wait);
 		goto repeat;
 	}
+
+	// 走到这里代表通过空闲链表已经找到了... 
+	// 为了没有bug，这里再次判断是否已经被其他进程给上锁了，如果上锁了继续睡眠等待，等待继续尝试。
 	wait_on_buffer(bh);
+
+	// 执行到这里代表是当前进程获取到锁了。
+	// 但是已经被其他进程使用了，所以重新寻找。
 	if (bh->b_count)
 		goto repeat;
+
+	// b_dirt 修改标志位,   0未修改   ，1已修改。
+	// 进while循环就代表是已被修改的
 	while (bh->b_dirt) {
+
+		// 
 		sync_dev(bh->b_dev);
 		wait_on_buffer(bh);
 		if (bh->b_count)
@@ -244,8 +300,10 @@ repeat:
 	bh->b_dirt=0;
 	bh->b_uptodate=0;
 	remove_from_queues(bh);
+	
 	bh->b_dev=dev;
 	bh->b_blocknr=block;
+	
 	insert_into_queues(bh);
 	return bh;
 }

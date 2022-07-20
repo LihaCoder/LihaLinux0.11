@@ -184,18 +184,28 @@ int sys_pause(void)
 	return 0;
 }
 
+
 void sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
 
 	if (!p)
 		return;
+
 	if (current == &(init_task.task))
 		panic("task[0] trying to sleep");
+
+	// *p解一次引用得到task_struct的地址。
 	tmp = *p;
+
+	// 把当前进程放入到传入的队列中。
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
+
+	// 切换任务。
 	schedule();
+
+	// 将第一个task_struct的状态设置为可运行。
 	if (tmp)
 		tmp->state=0;
 }
@@ -221,6 +231,7 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 		tmp->state=0;
 }
 
+// 唤醒队列头的被锁标志位给休眠的进程。
 void wake_up(struct task_struct **p)
 {
 	if (p && *p) {
@@ -452,14 +463,21 @@ void sched_init(void)
 	}
 /* Clear NT, so that we won't have troubles with that later on */
 	__asm__("pushfl ; andl $0xffffbfff,(%esp) ; popfl");
+
+	// 加载tr寄存器
 	ltr(0);
+
+	// 加载ldtr寄存器
 	lldt(0);
 	outb_p(0x36,0x43);		/* binary, mode 3, LSB/MSB, ch 0 */
 	outb_p(LATCH & 0xff , 0x40);	/* LSB */
 	outb(LATCH >> 8 , 0x40);	/* MSB */
 
-	// 0x20 = 32， 将时钟中断32放入到idt表中。
+	// 0x20 = 32， 将时钟中断32放入到idt表中。  属于硬中断，异步发生的。
 	set_intr_gate(0x20,&timer_interrupt);
+	
 	outb(inb_p(0x21)&~0x01,0x21);
-	set_system_gate(0x80,&system_call);
+
+	// 属于软件中断，也就是异常。而异常又分为：陷进、错误、终止。对于0x80的系统调用号来说都是属于陷进
+	set_system_gate(0x80,&system_call);		
 }

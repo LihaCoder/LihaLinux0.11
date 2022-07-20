@@ -42,9 +42,13 @@ struct blk_dev_struct blk_dev[NR_BLK_DEV] = {
 static inline void lock_buffer(struct buffer_head * bh)
 {
 	cli();
+
+	// 如果当前的bf的锁被占用，那就先切换进程，直到锁被释放了。
 	while (bh->b_lock)
 		sleep_on(&bh->b_wait);
-	bh->b_lock=1;
+
+	// 上锁
+	bh->b_lock=1;	
 	sti();
 }
 
@@ -75,11 +79,14 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 		(dev->request_fn)();
 		return;
 	}
-	for ( ; tmp->next ; tmp=tmp->next)
+	// 
+	for ( ; tmp->next ; tmp=tmp->next)	
 		if ((IN_ORDER(tmp,req) ||
 		    !IN_ORDER(tmp,tmp->next)) &&
 		    IN_ORDER(req,tmp->next))
 			break;
+
+	// 添加到链表尾部的操作。
 	req->next=tmp->next;
 	tmp->next=req;
 	sti();
@@ -93,17 +100,26 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 /* WRITEA/READA is special case - it is not really needed, so if the */
 /* buffer is locked, we just forget about it, else it's a normal read */
 	if (rw_ahead = (rw == READA || rw == WRITEA)) {
+
+		// 被锁了直接溜了
 		if (bh->b_lock)
 			return;
+
 		if (rw == READA)
 			rw = READ;
 		else
 			rw = WRITE;
 	}
+
+	// 不是读，不是写，那是怪物？
 	if (rw!=READ && rw!=WRITE)
 		panic("Bad block dev command, must be R/W/RA/WA");
+
+	
 	lock_buffer(bh);
+	
 	if ((rw == WRITE && !bh->b_dirt) || (rw == READ && bh->b_uptodate)) {
+		// 释放当前缓存头的锁，并且将当前缓存头中等待队列唤醒。
 		unlock_buffer(bh);
 		return;
 	}
@@ -112,17 +128,30 @@ repeat:
  * we want some room for reads: they take precedence. The last third
  * of the requests are only for reads.
  */
+ 	// 如果是读获取到最后一位
 	if (rw == READ)
 		req = request+NR_REQUEST;
+
+	// 如果是写就获取到接近2/3的位置。因为读优先。
 	else
 		req = request+((NR_REQUEST*2)/3);
+	
 /* find an empty request */
+	// 从读或者写的最后一位开始遍历。 直到找到空闲的。
 	while (--req >= request)
+
+		// dev为-1代表没被使用.
 		if (req->dev<0)
 			break;
+		
 /* if none found, sleep on new requests: check for rw_ahead */
+	// 如果找到了就代表req不为首地址
+	// 如果没有找到就代表req为首地址 - 一个request结构体大小。
+	// 所以这里是没有找到。
 	if (req < request) {
 		if (rw_ahead) {
+
+			// 释放锁，并且唤醒被睡眠的进程，让他们醒来判断锁。
 			unlock_buffer(bh);
 			return;
 		}
@@ -151,6 +180,7 @@ void ll_rw_block(int rw, struct buffer_head * bh)
 		printk("Trying to read nonexistent block-device\n\r");
 		return;
 	}
+	
 	make_request(major,rw,bh);
 }
 

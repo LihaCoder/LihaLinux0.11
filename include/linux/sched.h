@@ -110,7 +110,7 @@ struct task_struct {
 	struct m_inode * root;
 	struct m_inode * executable;
 	unsigned long close_on_exec;
-	struct file * filp[NR_OPEN];
+	struct file * filp[NR_OPEN];					// 当前进程打开的文件，最多为20个。
 	struct desc_struct ldt[3];
 	struct tss_struct tss;
 };

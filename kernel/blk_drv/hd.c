@@ -53,10 +53,11 @@ struct hd_i_struct hd_info[] = { {0,0,0,0,0,0},{0,0,0,0,0,0} };
 static int NR_HD = 0;
 #endif
 
+
 static struct hd_struct {
 	long start_sect;
 	long nr_sects;
-} hd[5*MAX_HD]={{0,0},};
+} hd[5*MAX_HD]={{0,0},};	// MAX_HD为2.
 
 #define port_read(port,buf,nr) \
 __asm__("cld;rep;insw"::"d" (port),"D" (buf),"c" (nr):"cx","di")
@@ -299,8 +300,13 @@ void do_hd_request(void)
 	unsigned int nsect;
 
 	INIT_REQUEST;
+
+	// 获取到request结构体中的dev设备.
 	dev = MINOR(CURRENT->dev);
+
+	// 获取到request结构体中block块设备
 	block = CURRENT->sector;
+	
 	if (dev >= 5*NR_HD || block+2 > hd[dev].nr_sects) {
 		end_request(0);
 		goto repeat;
