@@ -292,6 +292,7 @@ static void recal_intr(void)
 	do_hd_request();
 }
 
+// 硬盘的request_fn函数指针的回调地址。
 void do_hd_request(void)
 {
 	int i,r;
@@ -346,9 +347,13 @@ void do_hd_request(void)
 		panic("unknown hd-command");
 }
 
+// 硬盘初始化
 void hd_init(void)
 {
+	// 把请求队列给初始化。 对于硬盘来说是下标为3的，也就是第4个元素。
 	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
+
+	// 硬盘中断.
 	set_intr_gate(0x2E,&hd_interrupt);
 	outb_p(inb_p(0x21)&0xfb,0x21);
 	outb(inb_p(0xA1)&0xbf,0xA1);

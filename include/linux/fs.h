@@ -30,6 +30,7 @@
 
 void buffer_init(long buffer_end);
 
+// 设备号右移8位，也就是除以2^8次。
 #define MAJOR(a) (((unsigned)(a))>>8)
 #define MINOR(a) ((a)&0xff)
 

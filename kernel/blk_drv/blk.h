@@ -46,6 +46,8 @@ struct request {
 ((s1)->dev < (s2)->dev || ((s1)->dev == (s2)->dev && \
 (s1)->sector < (s2)->sector)))
 
+// 函数指针，也就是接口回调。
+// 当前函数指针对应的请求任务。
 struct blk_dev_struct {
 	void (*request_fn)(void);
 	struct request * current_request;
@@ -83,6 +85,8 @@ extern struct task_struct * wait_for_request;
 /* harddisk */
 #define DEVICE_NAME "harddisk"
 #define DEVICE_INTR do_hd
+
+// 硬盘具体的函数指针回调地址。
 #define DEVICE_REQUEST do_hd_request
 #define DEVICE_NR(device) (MINOR(device)/5)
 #define DEVICE_ON(device)

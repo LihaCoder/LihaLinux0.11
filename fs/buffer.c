@@ -264,6 +264,7 @@ repeat:
 	} while ((tmp = tmp->b_next_free) != free_list);
 
 	// 如果上面的do while循环执行完毕都没有找到bh，那就先休息一下，再继续找
+	// 也就是目前没有空闲。
 	if (!bh) {
 
 		// 传入一个buffer等待队列进去。
@@ -284,12 +285,13 @@ repeat:
 	// 进while循环就代表是已被修改的
 	while (bh->b_dirt) {
 
-		// 
+		// 脏数据先写回磁盘中。
 		sync_dev(bh->b_dev);
 		wait_on_buffer(bh);
 		if (bh->b_count)
 			goto repeat;
 	}
+	
 /* NOTE!! While we slept waiting for this block, somebody else might */
 /* already have added "this" block to the cache. check it */
 	if (find_buffer(dev,block))
@@ -303,7 +305,8 @@ repeat:
 	
 	bh->b_dev=dev;
 	bh->b_blocknr=block;
-	
+
+	// 操作链表和hash表，并且重新计算了hash值。
 	insert_into_queues(bh);
 	return bh;
 }

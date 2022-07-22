@@ -195,17 +195,17 @@ void sleep_on(struct task_struct **p)
 	if (current == &(init_task.task))
 		panic("task[0] trying to sleep");
 
-	// *p解一次引用得到task_struct的地址。
+
 	tmp = *p;
 
-	// 把当前进程放入到传入的队列中。
+
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
 
 	// 切换任务。
 	schedule();
 
-	// 将第一个task_struct的状态设置为可运行。
+
 	if (tmp)
 		tmp->state=0;
 }
