@@ -130,7 +130,7 @@ struct file {
 	unsigned short f_flags;
 	unsigned short f_count;
 	struct m_inode * f_inode;
-	off_t f_pos;
+	off_t f_pos;					// 文件的偏移量。
 };
 
 // 超级块的描述结构体（这些都是元数据信息罢了）

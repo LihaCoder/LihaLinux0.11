@@ -35,15 +35,15 @@ int NR_BUFFERS = 0;
 
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
-	cli();		// 关闭中断。
+	cli();		
 
-	// 如果当前找到的这个缓存头已经被上锁了，直接sleep_on切换进程。
+	
 	while (bh->b_lock)
 
-		// 直接休眠，等待一段时间再来尝试。
+
 		sleep_on(&bh->b_wait);
 
-	// 睡醒了就打开中断
+
 	sti();
 }
 

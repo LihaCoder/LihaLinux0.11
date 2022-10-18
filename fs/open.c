@@ -166,7 +166,7 @@ int sys_open(const char * filename,int flag,int mode)
 	// 遍历总共的文件
 	for (i=0 ; i<NR_FILE ; i++,f++)
 
-		// 文件计数为0就break，
+		// 文件计数为0就break，代表找到了
 		if (!f->f_count) break;
 
 	// 如果遍历完全部64个数组，都没有找到其中某个元素计数为0的就直接返回。

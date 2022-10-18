@@ -83,7 +83,7 @@ reschedule:
 _system_call:
 	cmpl $nr_system_calls-1,%eax
 	ja bad_sys_call
-	push %ds
+	push %ds		# 下面几个push很简单，把用户态在寄存器的值暂时保存起来，因为内核态可能会修改。
 	push %es
 	push %fs
 	pushl %edx
@@ -128,7 +128,7 @@ ret_from_sys_call:
 	pop %fs
 	pop %es
 	pop %ds
-	iret
+	iret			# 从内核态返回到用户态。
 
 .align 2
 _coprocessor_error:
@@ -238,6 +238,7 @@ _sys_fork:
 	addl $20,%esp
 1:	ret
 
+# 目前在内核态，所以把当前进程用户态的一些寄存器信息给保存，防止内核态修改了，导致数据脏
 _hd_interrupt:
 	pushl %eax
 	pushl %ecx

@@ -135,11 +135,17 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		current->executable->i_count++;
 
 	// 把子进程的tss、ldt描述符加载到GDT表中
+	// gdt是数组的首地址，是一个地址
+	// nr<<1 也就是把nr * 2，为什么要乘以2呢？因为每个进程有tss和ldt表项
+	// FIRST_TSS_ENTRY 为4，FIRST_LDT_ENTRY 为5，为什么要+4和+5呢，因为对于tss来说内核占用了4项，对于ldt来说内核占用了5项。
+	// 所以就是地址+偏移量的操作。偏移量是多少，取决于指针的类型（c语言的基础不过多bb）
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	
 	// 让当前子进程进入到可被调度状态
 	p->state = TASK_RUNNING;	/* do this last, just in case */
+
+	// 父进程返回的是子进程的pid。
 	return last_pid;
 }
 

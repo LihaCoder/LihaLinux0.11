@@ -198,11 +198,9 @@ void sleep_on(struct task_struct **p)
 
 	tmp = *p;
 
-
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
 
-	// 切换任务。
 	schedule();
 
 

@@ -55,6 +55,8 @@ struct i387_struct {
 	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
 };
 
+// 任务上下文消息	。
+// 纵观整个cpu和os，其实也就是cpu的资源是共享的唯有一份，所以切换任务的时候需要把当前任务的资源给保存起来。
 struct tss_struct {
 	long	back_link;	/* 16 high bits zero */
 	long	esp0;

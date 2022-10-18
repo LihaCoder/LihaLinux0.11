@@ -32,7 +32,7 @@ struct request {
 	unsigned long nr_sectors;
 	char * buffer;
 	struct task_struct * waiting;
-	struct buffer_head * bh;
+	struct buffer_head * bh;	// 保存当前请求时处理那个bh，并且要唤醒bh中维护等待队列
 	struct request * next;		// 单项链表。
 };
 
@@ -54,6 +54,8 @@ struct blk_dev_struct {
 };
 
 extern struct blk_dev_struct blk_dev[NR_BLK_DEV];
+
+// 请求队列。
 extern struct request request[NR_REQUEST];
 extern struct task_struct * wait_for_request;
 

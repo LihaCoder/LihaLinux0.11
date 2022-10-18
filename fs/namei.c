@@ -433,7 +433,6 @@ int open_namei(const char * pathname, int flag, int mode,
 
 
 	// 走这里就代表已经存在了高速缓存，直接从高速缓存中去inode.
-	
 	inr = de->inode;
 	dev = dir->i_dev;
 	brelse(bh);
